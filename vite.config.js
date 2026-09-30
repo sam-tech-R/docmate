@@ -7,6 +7,7 @@ const previewDirectory = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
+  base: '/docmate/',
   resolve: {
     alias: {
       'lucide-react': path.resolve(previewDirectory, 'node_modules/lucide-react')

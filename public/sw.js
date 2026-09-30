@@ -1,5 +1,5 @@
 const CACHE_NAME = 'docmate-shell-v1';
-const APP_SHELL = ['/', '/manifest.webmanifest', '/icons/docmate.svg', '/icons/docmate-maskable.svg'];
+const APP_SHELL = ['/docmate/', '/docmate/manifest.webmanifest', '/docmate/icons/docmate.svg', '/docmate/icons/docmate-maskable.svg'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)));
@@ -19,6 +19,6 @@ self.addEventListener('fetch', event => {
         caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
       }
       return response;
-    }).catch(() => caches.match('/')))
+    }).catch(() => caches.match('/docmate/')))
   );
 });
