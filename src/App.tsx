@@ -244,7 +244,7 @@ const triggerDownload = (url, filename) => {
     window.dispatchEvent(new CustomEvent('docmate-download', { detail: { status: 'complete', filename, url } }));
   }, 450);
   if (url.startsWith('blob:')) {
-    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    window.setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
   }
 };
 
@@ -2403,7 +2403,7 @@ const AllTools = ({ navigateToTool, initialSearch = '', favorites = [], toggleFa
 
 const WorkspaceDashboard = ({ navigate, navigateToTool, recentTools, favoriteTools, recentFiles, stats }) => (
   <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-    <section className="relative overflow-hidden rounded-3xl border border-cyan-500/20 bg-gradient-to-br from-slate-900 via-slate-950 to-cyan-950/40 p-6 sm:p-10">
+    <section className="docmate-hero relative overflow-hidden rounded-3xl border border-cyan-500/20 bg-gradient-to-br from-slate-900 via-slate-950 to-cyan-950/40 p-6 sm:p-10">
       <div className="relative z-10 max-w-3xl"><Badge variant="cyan">PRIVATE DOCUMENT WORKSPACE</Badge><h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mt-4">Your files. Your browser. Your privacy.</h1><p className="text-base sm:text-lg text-slate-400 mt-4 max-w-2xl">Edit, convert, compress and organize documents without uploading them.</p><Button className="mt-6" onClick={() => navigate('all_tools')}><UploadCloud className="w-4 h-4" /> Choose a tool</Button></div>
       <div className="absolute -right-20 -bottom-32 h-80 w-80 rounded-full bg-cyan-500/10 blur-3xl" />
     </section>
@@ -2476,8 +2476,17 @@ const DownloadToast = () => {
     window.addEventListener('docmate-download', handleDownload);
     return () => window.removeEventListener('docmate-download', handleDownload);
   }, []);
+  const openDownload = url => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
   if (!download) return null;
-  return <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 z-[75] w-auto sm:w-96 rounded-2xl border border-slate-700 bg-slate-900/95 backdrop-blur-xl p-4 shadow-2xl" role="status" aria-live="polite"><div className="flex items-start gap-3"><div className={`p-2 rounded-lg ${download.status === 'preparing' ? 'bg-cyan-500/10 text-cyan-300' : 'bg-emerald-500/10 text-emerald-300'}`}>{download.status === 'preparing' ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}</div><div className="min-w-0 flex-1"><div className="text-sm font-semibold text-white">{download.status === 'preparing' ? 'Preparing your download...' : 'Download complete'}</div><div className="text-xs text-slate-400 mt-1 truncate" title={download.filename}>{download.filename}</div>{download.status === 'complete' && <div className="flex gap-2 mt-3"><Button size="sm" onClick={() => window.open(download.url, '_blank', 'noopener,noreferrer')}><FileText className="w-4 h-4" /> Open file</Button><Button size="sm" variant="ghost" onClick={() => setDownload(null)}>Dismiss</Button></div>}</div><button onClick={() => setDownload(null)} className="p-1 text-slate-500 hover:text-white" aria-label="Dismiss download notification"><X className="w-4 h-4" /></button></div></div>;
+  return <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 z-[75] w-auto sm:w-96 rounded-2xl border border-slate-700 bg-slate-900/95 backdrop-blur-xl p-4 shadow-2xl" role="status" aria-live="polite"><div className="flex items-start gap-3"><div className={`p-2 rounded-lg ${download.status === 'preparing' ? 'bg-cyan-500/10 text-cyan-300' : 'bg-emerald-500/10 text-emerald-300'}`}>{download.status === 'preparing' ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}</div><div className="min-w-0 flex-1"><div className="text-sm font-semibold text-white">{download.status === 'preparing' ? 'Preparing your download...' : 'Download complete'}</div><div className="text-xs text-slate-400 mt-1 truncate" title={download.filename}>{download.filename}</div>{download.status === 'complete' && <div className="flex gap-2 mt-3"><button onClick={() => openDownload(download.url)} className="inline-flex items-center justify-center font-medium transition-all rounded-xl text-sm px-3 py-1.5 gap-1.5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white"><FileText className="w-4 h-4" /> Open file</button><Button size="sm" variant="ghost" onClick={() => setDownload(null)}>Dismiss</Button></div>}</div><button onClick={() => setDownload(null)} className="p-1 text-slate-500 hover:text-white" aria-label="Dismiss download notification"><X className="w-4 h-4" /></button></div></div>;
 };
 
 export default function App() {
