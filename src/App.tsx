@@ -90,17 +90,18 @@ const rememberRecentFile = (file) => {
 };
 
 const TOOLS = [
-  { id: 'ai-assistant', name: 'Local Document Assistant', category: 'AI Tools', icon: Sparkles, desc: 'Summarize and search PDFs privately in your browser.', popular: true },
-  { id: 'remove-bg', name: 'Background Remover', category: 'Image', icon: Scissors, desc: 'Remove solid backgrounds instantly.', popular: true },
+  { id: 'image-to-pdf', name: 'Image to PDF', category: 'PDF', icon: FileOutput, desc: 'Convert and organize images into PDF.', popular: true },
   { id: 'exact-compress', name: 'Exact Size Compressor', category: 'Student', icon: Settings, desc: 'Compress exactly to a target KB/MB.', popular: true },
   { id: 'image-converter', name: 'Image Converter', category: 'Image', icon: RefreshCw, desc: 'Convert between JPG, PNG, WEBP.', popular: true },
-  { id: 'image-to-pdf', name: 'Image to PDF', category: 'PDF', icon: FileOutput, desc: 'Convert and organize images into PDF.', popular: true },
+  { id: 'document-scanner', name: 'Document Scanner', category: 'Document', icon: Camera, desc: 'Scan multiple pages from your camera into one PDF.', popular: true },
+  { id: 'passport-photo', name: 'Passport Photo Maker', category: 'Student', icon: FileBadge, desc: 'Create perfect official photos.', popular: true },
+  { id: 'signature-maker', name: 'Signature Maker', category: 'Student', icon: FileImage, desc: 'Clean, crop, and format signatures.', popular: true },
+  { id: 'remove-bg', name: 'Background Remover', category: 'Image', icon: Scissors, desc: 'Remove solid backgrounds from edge-connected areas.', popular: true },
+  { id: 'ai-assistant', name: 'Local Document Assistant', category: 'AI Tools', icon: Sparkles, desc: 'Summarize and search PDFs privately in your browser.', popular: true },
   { id: 'pdf-to-images', name: 'PDF to Images', category: 'PDF', icon: ImagePlus, desc: 'Extract PDF pages as JPG/PNG.', popular: false },
   { id: 'merge-pdf', name: 'Merge PDF', category: 'PDF', icon: FileUp, desc: 'Combine multiple PDFs into one.', popular: true },
   { id: 'split-pdf', name: 'Split PDF', category: 'PDF', icon: Scissors, desc: 'Extract or split pages from a PDF.', popular: false },
   { id: 'pdf-organizer', name: 'PDF Page Organizer', category: 'PDF', icon: Grid, desc: 'Visually reorder, rotate, and delete pages.', popular: true },
-  { id: 'passport-photo', name: 'Passport Photo Maker', category: 'Student', icon: FileBadge, desc: 'Create perfect official photos.', popular: true },
-  { id: 'signature-maker', name: 'Signature Maker', category: 'Student', icon: FileImage, desc: 'Clean, crop, and format signatures.', popular: true },
   { id: 'submission-ready', name: 'Submission Ready', category: 'Student', icon: FileCheck2, desc: 'Validate files for applications.', popular: true },
   { id: 'pdf-watermark', name: 'PDF Watermark', category: 'PDF', icon: Stamp, desc: 'Stamp text across selected PDF pages locally.', popular: true },
   { id: 'pdf-page-numbers', name: 'Page Numbers', category: 'PDF', icon: Hash, desc: 'Add numbered footers to every PDF page.', popular: false },
@@ -148,7 +149,7 @@ const Badge = ({ children, variant = 'blue' }) => {
   return <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full ${variants[variant]}`}>{children}</span>;
 };
 
-const Dropzone = ({ onFileSelect, accept = "*", title = "Drop your file here", subtitle = "or click to browse", icon: Icon = UploadCloud, multiple = false }) => {
+const Dropzone = ({ onFileSelect, accept = "*", title = "Drop your file here", subtitle = "or click to browse", icon: Icon = UploadCloud, multiple = false, capture }) => {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -172,7 +173,7 @@ const Dropzone = ({ onFileSelect, accept = "*", title = "Drop your file here", s
       className={`relative w-full p-10 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-all duration-200 cursor-pointer ${isDragging ? 'border-cyan-400 bg-cyan-400/5' : 'border-slate-700 bg-slate-900/50 hover:border-slate-500 hover:bg-slate-800/50'}`}
       onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()}
     >
-      <input type="file" ref={fileInputRef} className="hidden" accept={accept} multiple={multiple} onChange={(e) => { 
+      <input type="file" ref={fileInputRef} className="hidden" accept={accept} capture={capture} multiple={multiple} onChange={(e) => { 
         if(e.target.files?.length) {
           Array.from(e.target.files).forEach(rememberRecentFile);
           multiple ? onFileSelect(Array.from(e.target.files)) : onFileSelect(e.target.files[0]);
@@ -270,13 +271,24 @@ const BackgroundRemover = () => {
       // Sample top-left pixel as background color
       const bgR = data[0], bgG = data[1], bgB = data[2];
 
-      // Simple flood-fill / color-keying approach for browser privacy
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i], g = data[i+1], b = data[i+2];
-        const distance = Math.sqrt(Math.pow(r-bgR,2) + Math.pow(g-bgG,2) + Math.pow(b-bgB,2));
-        if (distance < tolerance) {
-          data[i+3] = 0; // Transparent
-        }
+      // Remove only background-connected pixels so similarly colored foreground details survive.
+      const visited = new Uint8Array(canvas.width * canvas.height);
+      const queue = [];
+      for (let x = 0; x < canvas.width; x++) queue.push([x, 0], [x, canvas.height - 1]);
+      for (let y = 1; y < canvas.height - 1; y++) queue.push([0, y], [canvas.width - 1, y]);
+      while (queue.length) {
+        const [x, y] = queue.pop();
+        const position = y * canvas.width + x;
+        if (visited[position]) continue;
+        visited[position] = 1;
+        const offset = position * 4;
+        const distance = Math.hypot(data[offset] - bgR, data[offset + 1] - bgG, data[offset + 2] - bgB);
+        if (distance > tolerance) continue;
+        data[offset + 3] = 0;
+        if (x > 0) queue.push([x - 1, y]);
+        if (x < canvas.width - 1) queue.push([x + 1, y]);
+        if (y > 0) queue.push([x, y - 1]);
+        if (y < canvas.height - 1) queue.push([x, y + 1]);
       }
       ctx.putImageData(imgData, 0, 0);
       setResultUrl(canvas.toDataURL('image/png'));
@@ -2141,25 +2153,33 @@ const PdfEditor = () => {
 };
 
 const DocumentScanner = () => {
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [contrast, setContrast] = useState(1.15);
   const [grayscale, setGrayscale] = useState(true);
   const canvasRef = useRef(null);
   const processScan = async () => {
-    if (!file) return;
+    if (!files.length) return;
     setIsProcessing(true);
     try {
-      const image = await loadImage(await fileToDataURL(file));
-      const canvas = canvasRef.current;
-      canvas.width = image.width; canvas.height = image.height;
-      const context = canvas.getContext('2d'); context.drawImage(image, 0, 0);
-      const pixels = context.getImageData(0, 0, canvas.width, canvas.height); const data = pixels.data;
-      for (let index = 0; index < data.length; index += 4) { if (grayscale) { const value = data[index] * 0.299 + data[index + 1] * 0.587 + data[index + 2] * 0.114; data[index] = value; data[index + 1] = value; data[index + 2] = value; } data[index] = Math.max(0, Math.min(255, (data[index] - 128) * contrast + 128)); data[index + 1] = Math.max(0, Math.min(255, (data[index + 1] - 128) * contrast + 128)); data[index + 2] = Math.max(0, Math.min(255, (data[index + 2] - 128) * contrast + 128)); }
-      context.putImageData(pixels, 0, 0); const { jsPDF } = await loadJsPDF(); const pdf = new jsPDF({ orientation: image.width > image.height ? 'landscape' : 'portrait', unit: 'px', format: [image.width, image.height] }); pdf.addImage(canvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, image.width, image.height); pdf.save(`scanned_${file.name.replace(/\.[^/.]+$/, '')}.pdf`);
+      const { jsPDF } = await loadJsPDF();
+      let pdf = null;
+      for (const file of files) {
+        const image = await loadImage(await fileToDataURL(file));
+        const canvas = canvasRef.current;
+        canvas.width = image.width; canvas.height = image.height;
+        const context = canvas.getContext('2d'); context.drawImage(image, 0, 0);
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height); const data = pixels.data;
+        for (let index = 0; index < data.length; index += 4) { if (grayscale) { const value = data[index] * 0.299 + data[index + 1] * 0.587 + data[index + 2] * 0.114; data[index] = value; data[index + 1] = value; data[index + 2] = value; } data[index] = Math.max(0, Math.min(255, (data[index] - 128) * contrast + 128)); data[index + 1] = Math.max(0, Math.min(255, (data[index + 1] - 128) * contrast + 128)); data[index + 2] = Math.max(0, Math.min(255, (data[index + 2] - 128) * contrast + 128)); }
+        context.putImageData(pixels, 0, 0);
+        const orientation = image.width > image.height ? 'landscape' : 'portrait';
+        if (!pdf) pdf = new jsPDF({ orientation, unit: 'px', format: [image.width, image.height] }); else pdf.addPage([image.width, image.height], orientation);
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, image.width, image.height);
+      }
+      pdf.save(`scanned_${files[0].name.replace(/\.[^/.]+$/, '')}.pdf`);
     } finally { setIsProcessing(false); }
   };
-  return <div className="max-w-4xl mx-auto"><Card className="p-8"><div className="flex items-start gap-3 mb-6"><div className="p-3 rounded-xl bg-cyan-500/10 text-cyan-400"><Camera className="w-6 h-6" /></div><div><h2 className="text-xl font-bold text-white">Document Scanner</h2><p className="text-sm text-slate-400">Clean up a photo locally and export it as a PDF. Camera capture is supported on mobile.</p></div></div>{!file ? <Dropzone onFileSelect={setFile} accept="image/*" title="Upload or capture a document image" /> : <div className="space-y-5"><div className="grid md:grid-cols-2 gap-5"><div className="bg-slate-950 rounded-xl p-3 border border-slate-800"><img src={URL.createObjectURL(file)} alt="Document scan source" className="max-h-72 mx-auto object-contain" /></div><div className="space-y-4"><label className="flex items-center gap-3 text-sm text-slate-300"><input type="checkbox" checked={grayscale} onChange={e => setGrayscale(e.target.checked)} className="accent-cyan-500" /> Black and white scan</label><div><label className="block text-sm text-slate-400 mb-2">Contrast: {contrast.toFixed(2)}</label><input type="range" min="0.8" max="1.8" step="0.05" value={contrast} onChange={e => setContrast(Number(e.target.value))} className="w-full accent-cyan-500" /></div><p className="text-xs text-slate-500">The enhanced result is rendered in memory, then embedded into a PDF.</p></div></div><canvas ref={canvasRef} className="hidden" /><div className="flex gap-3"><Button variant="outline" onClick={() => setFile(null)}>Choose Another</Button><Button className="flex-1" onClick={processScan} isLoading={isProcessing}>Enhance & Export PDF</Button></div></div>}</Card></div>;
+  return <div className="max-w-4xl mx-auto"><Card className="p-8"><div className="flex items-start gap-3 mb-6"><div className="p-3 rounded-xl bg-cyan-500/10 text-cyan-400"><Camera className="w-6 h-6" /></div><div><h2 className="text-xl font-bold text-white">Document Scanner</h2><p className="text-sm text-slate-400">Capture or select multiple pages and export one clean PDF.</p></div></div>{!files.length ? <Dropzone onFileSelect={selected => setFiles(selected)} accept="image/*" multiple capture="environment" title="Capture or add scan pages" /> : <div className="space-y-5"><div className="grid grid-cols-3 sm:grid-cols-5 gap-3">{files.map((file, index) => <div key={`${file.name}-${index}`} className="relative"><img src={URL.createObjectURL(file)} alt={`Scan page ${index + 1}`} className="aspect-[3/4] w-full object-cover rounded-lg border border-slate-700" /><span className="absolute bottom-1 left-1 rounded bg-slate-950/80 px-1.5 py-0.5 text-[10px] text-white">{index + 1}</span></div>)}</div><div className="flex flex-wrap items-center gap-4"><label className="flex items-center gap-3 text-sm text-slate-300"><input type="checkbox" checked={grayscale} onChange={e => setGrayscale(e.target.checked)} className="accent-cyan-500" /> Black and white scan</label><div className="min-w-48"><label className="block text-sm text-slate-400 mb-2">Contrast: {contrast.toFixed(2)}</label><input type="range" min="0.8" max="1.8" step="0.05" value={contrast} onChange={e => setContrast(Number(e.target.value))} className="w-full accent-cyan-500" /></div></div><div className="flex gap-3"><label className="inline-flex items-center justify-center font-medium rounded-xl text-sm px-4 py-2.5 gap-2 text-slate-300 border border-slate-600 hover:bg-slate-800 cursor-pointer"><Camera className="w-4 h-4" /> Add pages<input type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={e => e.target.files?.length && setFiles(current => [...current, ...Array.from(e.target.files)])} /></label><Button variant="outline" onClick={() => setFiles([])}>Start over</Button><Button className="flex-1" onClick={processScan} isLoading={isProcessing}>Export {files.length}-page PDF</Button></div><canvas ref={canvasRef} className="hidden" /></div>}</Card></div>;
 };
 
 const ToolViewer = ({ tool, onBack, navigateToTool }) => {
@@ -2402,16 +2422,16 @@ export default function App() {
   const [uploadRef] = useState(() => React.createRef());
 
   const refreshFiles = () => setRecentFiles(readStoredJson('docmate-recent-files', []));
-  const navigate = newView => { setView(newView); setIsMenuOpen(false); refreshFiles(); window.scrollTo(0, 0); };
+  const navigate = (newView, replace = false) => { setView(newView); setIsMenuOpen(false); refreshFiles(); window.scrollTo(0, 0); if (window.history.state?.docmateView !== newView) { const method = replace ? 'replaceState' : 'pushState'; window.history[method]({ docmateView: newView }, '', window.location.href); } };
   const navigateToTool = tool => { if (!tool) return; setActiveTool(tool); setRecentTools(previous => { const next = [tool, ...previous.filter(item => item.id !== tool.id)].slice(0, 8); localStorage.setItem('docmate-recent-tools', JSON.stringify(next.map(item => ({ id: item.id })))); return next; }); navigate('tool_view'); };
   const toggleFavorite = id => setFavorites(previous => { const next = previous.includes(id) ? previous.filter(item => item !== id) : [...previous, id]; localStorage.setItem('docmate-favorites', JSON.stringify(next)); return next; });
   const clearLocalData = () => { ['docmate-recent-tools', 'docmate-favorites', 'docmate-recent-files', 'docmate-workflows'].forEach(key => localStorage.removeItem(key)); setRecentTools([]); setFavorites([]); setRecentFiles([]); };
 
-  useEffect(() => { const onKeyDown = event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setIsCommandOpen(true); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'u') { event.preventDefault(); uploadRef.current?.click(); } if (event.key === 'Escape') { setIsCommandOpen(false); setIsMenuOpen(false); } }; window.addEventListener('keydown', onKeyDown); return () => window.removeEventListener('keydown', onKeyDown); }, [uploadRef]);
+  useEffect(() => { window.history.replaceState({ docmateView: 'home' }, '', window.location.href); const onPopState = event => { setIsMenuOpen(false); setIsCommandOpen(false); setActiveTool(null); setView(event.state?.docmateView || 'home'); refreshFiles(); }; const onKeyDown = event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setIsCommandOpen(true); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'u') { event.preventDefault(); uploadRef.current?.click(); } if (event.key === 'Escape') { setIsCommandOpen(false); setIsMenuOpen(false); } }; window.addEventListener('popstate', onPopState); window.addEventListener('keydown', onKeyDown); return () => { window.removeEventListener('popstate', onPopState); window.removeEventListener('keydown', onKeyDown); }; }, [uploadRef]);
   const favoriteTools = favorites.map(id => TOOLS.find(tool => tool.id === id)).filter(Boolean);
   const stats = [{ label: 'Recent files', value: recentFiles.length, detail: 'stored locally' }, { label: 'Favorite tools', value: favoriteTools.length, detail: 'quick routes' }, { label: 'Available tools', value: TOOLS.length, detail: 'browser-first' }, { label: 'Cloud uploads', value: '0', detail: 'by design' }];
   const page = view === 'home' ? <WorkspaceDashboard navigate={navigate} navigateToTool={navigateToTool} recentTools={recentTools} favoriteTools={favoriteTools} recentFiles={recentFiles} stats={stats} /> : view === 'recent' ? <RecentFilesView files={recentFiles} onClear={() => { localStorage.removeItem('docmate-recent-files'); setRecentFiles([]); }} /> : view === 'favorites' ? <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8"><Badge variant="cyan">FAVORITES</Badge><h1 className="text-3xl font-bold text-white mt-3 mb-8">Your favorite tools</h1>{favoriteTools.length ? <div className="grid md:grid-cols-3 gap-5">{favoriteTools.map(tool => <Card key={tool.id} hover onClick={() => navigateToTool(tool)} className="p-6"><tool.icon className="w-6 h-6 text-amber-300 mb-4" /><h2 className="text-white font-semibold">{tool.name}</h2><p className="text-sm text-slate-500 mt-2">{tool.desc}</p></Card>)}</div> : <Card className="p-8"><EmptyState icon={Star} title="No favorites yet" text="Star a tool in All Tools to pin it here." action="Browse tools" onClick={() => navigate('all_tools')} /></Card>}</div> : view === 'all_tools' ? <AllTools navigateToTool={navigateToTool} initialSearch={searchQuery} favorites={favorites} toggleFavorite={toggleFavorite} /> : view === 'workflows' ? <Workflows navigateToTool={navigateToTool} /> : view === 'privacy' ? <PrivacyCenter onClear={clearLocalData} /> : <ToolViewer tool={activeTool} onBack={() => navigate('all_tools')} navigateToTool={navigateToTool} />;
 
   if (MAINTENANCE_MODE) return <div className="min-h-screen bg-slate-950 text-slate-300 flex items-center justify-center px-6"><div className="w-full max-w-lg text-center"><div className="mx-auto mb-6 w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shadow-[0_0_30px_rgba(6,182,212,0.35)]"><FileText className="w-8 h-8 text-white" /></div><Badge variant="cyan">TEMPORARILY UNAVAILABLE</Badge><h1 className="text-4xl font-bold text-white mt-5">We’ll be back soon.</h1><p className="text-slate-400 mt-4 leading-relaxed">DocMate is currently undergoing a quick update. Your local documents remain on your device, and the workspace will be available again shortly.</p><div className="mt-8 flex items-center justify-center gap-2 text-sm text-slate-500"><Loader2 className="w-4 h-4 animate-spin text-cyan-400" /> Maintenance in progress</div></div></div>;
-  return <div className="min-h-screen font-sans dark bg-slate-950 text-slate-300 selection:bg-cyan-500/30"><WorkspaceSidebar view={view} navigate={navigate} isOpen={isMenuOpen} close={() => setIsMenuOpen(false)} favoritesCount={favorites.length} /><div className="lg:pl-64"><header className="sticky top-0 z-40 h-16 backdrop-blur-xl bg-slate-950/85 border-b border-slate-800"><div className="h-full px-4 sm:px-6 flex items-center gap-3"><button className="lg:hidden p-2 text-slate-300" onClick={() => setIsMenuOpen(true)} aria-label="Open navigation"><Menu className="w-5 h-5" /></button><button onClick={() => setIsCommandOpen(true)} className="flex-1 max-w-xl flex items-center gap-3 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-500 hover:border-slate-700 text-sm text-left"><Search className="w-4 h-4" /><span className="flex-1">Search tools and workflows...</span><span className="hidden sm:flex items-center gap-1 text-[10px] border border-slate-700 rounded px-1.5 py-0.5"><Command className="w-3 h-3" />K</span></button><div className="ml-auto flex items-center gap-2"><Badge variant="emerald"><Lock className="w-3 h-3 inline mr-1" />Local</Badge><button onClick={() => navigate('privacy')} className="p-2 text-slate-500 hover:text-white" aria-label="Open privacy center"><ShieldCheck className="w-5 h-5" /></button></div></div></header><main className="min-h-[calc(100vh-64px)]">{page}</main><footer className="border-t border-slate-800 px-6 py-6 text-xs text-slate-600 flex justify-between"><span>DocMate · Local-first document workspace</span><button onClick={() => navigate('privacy')} className="hover:text-slate-300">Privacy center</button></footer></div><InstallPrompt /><DownloadToast /><input ref={uploadRef} type="file" className="hidden" onChange={event => { if (event.target.files?.[0]) { rememberRecentFile(event.target.files[0]); refreshFiles(); navigate('recent'); } event.target.value = null; }} />{isCommandOpen && <div className="fixed inset-0 z-[80] bg-black/70 p-4 flex items-start justify-center pt-[12vh]" onClick={() => setIsCommandOpen(false)}><div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden" onClick={event => event.stopPropagation()}><div className="p-4 border-b border-slate-800 flex items-center gap-3"><Search className="w-5 h-5 text-cyan-400" /><input autoFocus value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="Search tools..." className="flex-1 bg-transparent outline-none text-white" /><button onClick={() => setIsCommandOpen(false)} aria-label="Close search"><X className="w-5 h-5 text-slate-500" /></button></div><div className="max-h-80 overflow-y-auto p-2">{TOOLS.filter(tool => `${tool.name} ${tool.desc}`.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 8).map(tool => <button key={tool.id} onClick={() => { setIsCommandOpen(false); navigateToTool(tool); }} className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-slate-800"><tool.icon className="w-5 h-5 text-cyan-400" /><span className="text-sm text-white">{tool.name}</span><span className="text-xs text-slate-600 ml-auto">{tool.category}</span></button>)}{!TOOLS.some(tool => `${tool.name} ${tool.desc}`.toLowerCase().includes(searchQuery.toLowerCase())) && <div className="p-6 text-center text-sm text-slate-500">No matching tools.</div>}</div></div></div>}</div>;
+  return <div className="min-h-screen font-sans dark bg-slate-950 text-slate-300 selection:bg-cyan-500/30"><WorkspaceSidebar view={view} navigate={navigate} isOpen={isMenuOpen} close={() => setIsMenuOpen(false)} favoritesCount={favorites.length} /><div className="lg:pl-64"><header className="sticky top-0 z-40 h-16 backdrop-blur-xl bg-slate-950/85 border-b border-slate-800"><div className="h-full px-4 sm:px-6 flex items-center gap-3"><button className="lg:hidden p-2 text-slate-300" onClick={() => setIsMenuOpen(true)} aria-label="Open navigation"><Menu className="w-5 h-5" /></button><button onClick={() => setIsCommandOpen(true)} className="flex-1 max-w-xl flex items-center gap-3 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-500 hover:border-slate-700 text-sm text-left"><Search className="w-4 h-4" /><span className="flex-1">Search tools and workflows...</span><span className="hidden sm:flex items-center gap-1 text-[10px] border border-slate-700 rounded px-1.5 py-0.5"><Command className="w-3 h-3" />K</span></button><div className="ml-auto flex items-center gap-2"><Badge variant="emerald"><Lock className="w-3 h-3 inline mr-1" />Local</Badge><button onClick={() => navigate('privacy')} className="p-2 text-slate-500 hover:text-white" aria-label="Open privacy center"><ShieldCheck className="w-5 h-5" /></button></div></div></header><main className="min-h-[calc(100vh-64px)] pb-20 lg:pb-0">{page}</main><footer className="border-t border-slate-800 px-6 py-6 text-xs text-slate-600 flex justify-between"><span>DocMate · Local-first document workspace</span><button onClick={() => navigate('privacy')} className="hover:text-slate-300">Privacy center</button></footer></div><nav className="lg:hidden fixed bottom-0 inset-x-0 z-[65] border-t border-slate-800 bg-slate-950/95 backdrop-blur-xl px-2 pb-[env(safe-area-inset-bottom)]"><div className="grid grid-cols-4 gap-1"><button onClick={() => navigate('home')} className={`flex flex-col items-center gap-1 py-2 text-[10px] ${view === 'home' ? 'text-cyan-300' : 'text-slate-500'}`}><LayoutDashboard className="w-4 h-4" />Workspace</button><button onClick={() => navigate('all_tools')} className={`flex flex-col items-center gap-1 py-2 text-[10px] ${view === 'all_tools' || view === 'tool_view' ? 'text-cyan-300' : 'text-slate-500'}`}><Grid className="w-4 h-4" />Tools</button><button onClick={() => navigate('recent')} className={`flex flex-col items-center gap-1 py-2 text-[10px] ${view === 'recent' ? 'text-cyan-300' : 'text-slate-500'}`}><History className="w-4 h-4" />Recent</button><button onClick={() => navigate('favorites')} className={`flex flex-col items-center gap-1 py-2 text-[10px] ${view === 'favorites' ? 'text-cyan-300' : 'text-slate-500'}`}><Star className="w-4 h-4" />Favorites</button></div></nav><InstallPrompt /><DownloadToast /><input ref={uploadRef} type="file" className="hidden" onChange={event => { if (event.target.files?.[0]) { rememberRecentFile(event.target.files[0]); refreshFiles(); navigate('recent'); } event.target.value = null; }} />{isCommandOpen && <div className="fixed inset-0 z-[80] bg-black/70 p-4 flex items-start justify-center pt-[12vh]" onClick={() => setIsCommandOpen(false)}><div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden" onClick={event => event.stopPropagation()}><div className="p-4 border-b border-slate-800 flex items-center gap-3"><Search className="w-5 h-5 text-cyan-400" /><input autoFocus value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="Search tools..." className="flex-1 bg-transparent outline-none text-white" /><button onClick={() => setIsCommandOpen(false)} aria-label="Close search"><X className="w-5 h-5 text-slate-500" /></button></div><div className="max-h-80 overflow-y-auto p-2">{TOOLS.filter(tool => `${tool.name} ${tool.desc}`.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 8).map(tool => <button key={tool.id} onClick={() => { setIsCommandOpen(false); navigateToTool(tool); }} className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-slate-800"><tool.icon className="w-5 h-5 text-cyan-400" /><span className="text-sm text-white">{tool.name}</span><span className="text-xs text-slate-600 ml-auto">{tool.category}</span></button>)}{!TOOLS.some(tool => `${tool.name} ${tool.desc}`.toLowerCase().includes(searchQuery.toLowerCase())) && <div className="p-6 text-center text-sm text-slate-500">No matching tools.</div>}</div></div></div>}</div>;
 }
