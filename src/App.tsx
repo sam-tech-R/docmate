@@ -110,7 +110,7 @@ const TOOLS = [
   { id: 'document-scanner', name: 'Document Scanner', category: 'Document', icon: Camera, desc: 'Enhance an image and export a clean PDF.', popular: true },
 ];
 
-const MAINTENANCE_MODE = true;
+const MAINTENANCE_MODE = false;
 
 const CATEGORIES = ['All', 'Image', 'PDF', 'Student', 'Document', 'Privacy', 'AI Tools'];
 
