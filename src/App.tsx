@@ -91,21 +91,22 @@ const rememberRecentFile = (file) => {
 
 const TOOLS = [
   { id: 'image-to-pdf', name: 'Image to PDF', category: 'PDF', icon: FileOutput, desc: 'Convert and organize images into PDF.', popular: true },
-  { id: 'exact-compress', name: 'Exact Size Compressor', category: 'Student', icon: Settings, desc: 'Compress exactly to a target KB/MB.', popular: true },
+  { id: 'exact-compress', name: 'Exact Size Compressor', category: 'Utilities', icon: Settings, desc: 'Compress exactly to a target KB/MB.', popular: true },
   { id: 'image-converter', name: 'Image Converter', category: 'Image', icon: RefreshCw, desc: 'Convert between JPG, PNG, WEBP.', popular: true },
+  { id: 'image-editor', name: 'Image Editor', category: 'Image', icon: SlidersHorizontal, desc: 'Adjust, rotate, flip, and export images locally.', popular: true },
   { id: 'document-scanner', name: 'Document Scanner', category: 'Document', icon: Camera, desc: 'Scan multiple pages from your camera into one PDF.', popular: true },
-  { id: 'passport-photo', name: 'Passport Photo Maker', category: 'Student', icon: FileBadge, desc: 'Create perfect official photos.', popular: true },
-  { id: 'signature-maker', name: 'Signature Maker', category: 'Student', icon: FileImage, desc: 'Clean, crop, and format signatures.', popular: true },
+  { id: 'passport-photo', name: 'Passport Photo Maker', category: 'Applications', icon: FileBadge, desc: 'Create perfect official photos.', popular: true },
+  { id: 'signature-maker', name: 'Signature Maker', category: 'Applications', icon: FileImage, desc: 'Clean, crop, and format signatures.', popular: true },
   { id: 'remove-bg', name: 'Background Remover', category: 'Image', icon: Scissors, desc: 'Remove solid backgrounds from edge-connected areas.', popular: true },
   { id: 'ai-assistant', name: 'Local Document Assistant', category: 'AI Tools', icon: Sparkles, desc: 'Summarize and search PDFs privately in your browser.', popular: true },
   { id: 'pdf-to-images', name: 'PDF to Images', category: 'PDF', icon: ImagePlus, desc: 'Extract PDF pages as JPG/PNG.', popular: false },
   { id: 'merge-pdf', name: 'Merge PDF', category: 'PDF', icon: FileUp, desc: 'Combine multiple PDFs into one.', popular: true },
   { id: 'split-pdf', name: 'Split PDF', category: 'PDF', icon: Scissors, desc: 'Extract or split pages from a PDF.', popular: false },
   { id: 'pdf-organizer', name: 'PDF Page Organizer', category: 'PDF', icon: Grid, desc: 'Visually reorder, rotate, and delete pages.', popular: true },
-  { id: 'submission-ready', name: 'Submission Ready', category: 'Student', icon: FileCheck2, desc: 'Validate files for applications.', popular: true },
+  { id: 'submission-ready', name: 'Application Pack', category: 'Applications', icon: FileCheck2, desc: 'Validate and package files for applications.', popular: true },
   { id: 'pdf-watermark', name: 'PDF Watermark', category: 'PDF', icon: Stamp, desc: 'Stamp text across selected PDF pages locally.', popular: true },
   { id: 'pdf-page-numbers', name: 'Page Numbers', category: 'PDF', icon: Hash, desc: 'Add numbered footers to every PDF page.', popular: false },
-  { id: 'image-ocr', name: 'Image OCR', category: 'Document', icon: ScanText, desc: 'Extract text from images in your browser.', popular: true },
+  { id: 'image-ocr', name: 'Image OCR', category: 'OCR & Scan', icon: ScanText, desc: 'Extract text from images in your browser.', popular: true },
   { id: 'pdf-compare', name: 'Compare PDFs', category: 'PDF', icon: GitCompareArrows, desc: 'Compare page counts and extracted text.', popular: false },
   { id: 'pdf-editor', name: 'PDF Text Editor', category: 'PDF', icon: FilePenLine, desc: 'Add text overlays to PDF pages locally.', popular: true },
   { id: 'document-scanner', name: 'Document Scanner', category: 'Document', icon: Camera, desc: 'Enhance an image and export a clean PDF.', popular: true },
@@ -113,7 +114,7 @@ const TOOLS = [
 
 const MAINTENANCE_MODE = false;
 
-const CATEGORIES = ['All', 'Image', 'PDF', 'Student', 'Document', 'Privacy', 'AI Tools'];
+const CATEGORIES = ['All', 'PDF', 'Image', 'Document', 'Applications', 'OCR & Scan', 'Utilities', 'AI Tools'];
 
 const Button = ({ children, variant = 'primary', size = 'md', className = '', isLoading = false, disabled = false, onClick, ...props }) => {
   const baseStyle = "inline-flex items-center justify-center font-medium transition-all duration-200 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed";
@@ -472,11 +473,37 @@ const ExactCompressor = () => {
   );
 };
 
+const ImageEditor = () => {
+  const [file, setFile] = useState(null);
+  const [settings, setSettings] = useState({ brightness: 100, contrast: 100, saturation: 100, grayscale: false, rotation: 0, flip: false });
+  const [isExporting, setIsExporting] = useState(false);
+  const canvasRef = useRef(null);
+  const previewUrl = file ? URL.createObjectURL(file) : null;
+  const exportImage = async () => {
+    if (!file) return;
+    setIsExporting(true);
+    try {
+      const image = await loadImage(await fileToDataURL(file));
+      const canvas = canvasRef.current;
+      const sideways = settings.rotation % 180 !== 0;
+      canvas.width = sideways ? image.height : image.width; canvas.height = sideways ? image.width : image.height;
+      const context = canvas.getContext('2d');
+      context.translate(canvas.width / 2, canvas.height / 2); context.rotate((settings.rotation * Math.PI) / 180); context.scale(settings.flip ? -1 : 1, 1);
+      context.filter = `brightness(${settings.brightness}%) contrast(${settings.contrast}%) saturate(${settings.saturation}%)${settings.grayscale ? ' grayscale(100%)' : ''}`;
+      context.drawImage(image, -image.width / 2, -image.height / 2);
+      triggerDownload(canvas.toDataURL('image/png'), `edited_${file.name.replace(/\.[^/.]+$/, '')}.png`);
+    } finally { setIsExporting(false); }
+  };
+  return <div className="max-w-5xl mx-auto"><Card className="p-8"><div className="flex items-start gap-3 mb-6"><div className="p-3 rounded-xl bg-cyan-500/10 text-cyan-400"><SlidersHorizontal className="w-6 h-6" /></div><div><h2 className="text-xl font-bold text-white">Local Image Editor</h2><p className="text-sm text-slate-400">Adjust images in your browser, then export a new copy.</p></div></div>{!file ? <Dropzone onFileSelect={setFile} accept="image/*" title="Upload an image to edit" /> : <div className="space-y-6"><div className="grid md:grid-cols-2 gap-5"><div><div className="text-xs uppercase tracking-wider text-slate-500 mb-2">Before</div><div className="h-72 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center p-3"><img src={previewUrl} alt="Original" className="max-h-full max-w-full object-contain" /></div></div><div><div className="text-xs uppercase tracking-wider text-slate-500 mb-2">After preview</div><div className="h-72 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center p-3"><img src={previewUrl} alt="Preview" style={{ filter: `brightness(${settings.brightness}%) contrast(${settings.contrast}%) saturate(${settings.saturation}%)${settings.grayscale ? ' grayscale(100%)' : ''}`, transform: `rotate(${settings.rotation}deg) scaleX(${settings.flip ? -1 : 1})` }} className="max-h-full max-w-full object-contain" /></div></div></div><div className="grid sm:grid-cols-3 gap-4">{[['Brightness', 'brightness', 50, 150], ['Contrast', 'contrast', 50, 150], ['Saturation', 'saturation', 0, 200]].map(([label, key, min, max]) => <label key={key} className="text-sm text-slate-400">{label}: {settings[key]}<input type="range" min={min} max={max} value={settings[key]} onChange={e => setSettings(current => ({ ...current, [key]: Number(e.target.value) }))} className="w-full accent-cyan-500 mt-2" /></label>)}</div><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setSettings(current => ({ ...current, rotation: (current.rotation + 90) % 360 }))}><RotateCw className="w-4 h-4" /> Rotate</Button><Button variant="outline" onClick={() => setSettings(current => ({ ...current, flip: !current.flip }))}><ArrowDownUp className="w-4 h-4" /> Flip</Button><label className="inline-flex items-center gap-2 rounded-xl border border-slate-600 px-4 py-2.5 text-sm text-slate-300"><input type="checkbox" checked={settings.grayscale} onChange={e => setSettings(current => ({ ...current, grayscale: e.target.checked }))} className="accent-cyan-500" /> Grayscale</label></div><div className="flex gap-3"><Button variant="outline" onClick={() => setFile(null)}>Choose another</Button><Button className="flex-1" onClick={exportImage} isLoading={isExporting}><Download className="w-4 h-4" /> Export PNG</Button></div><canvas ref={canvasRef} className="hidden" /></div>}</Card></div>;
+};
+
 const ImageConverter = () => {
   const [files, setFiles] = useState([]);
   const [targetFormat, setTargetFormat] = useState('image/png');
   const [results, setResults] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [completedBytes, setCompletedBytes] = useState(0);
   const [step, setStep] = useState(0);
 
   const handleFiles = (newFiles) => {
@@ -486,7 +513,7 @@ const ImageConverter = () => {
   };
 
   const processConversion = async () => {
-    setIsProcessing(true);
+    setIsProcessing(true); setProgress(0); setCompletedBytes(0);
     const converted = [];
     for (let f of files) {
       try {
@@ -515,6 +542,8 @@ const ImageConverter = () => {
       } catch (e) {
         converted.push({ originalName: f.name, status: 'Failed' });
       }
+      setProgress(Math.round((converted.length / files.length) * 100));
+      setCompletedBytes(converted.reduce((total, item) => total + (item.newSize || 0), 0));
     }
     setResults(converted);
     setIsProcessing(false);
@@ -552,6 +581,7 @@ const ImageConverter = () => {
                 </select>
              </div>
            </div>
+           {isProcessing && <div className="mb-6 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4"><div className="flex justify-between text-sm text-slate-300"><span>Converting images</span><span>{progress}% · {Math.min(files.length, Math.ceil((progress / 100) * files.length))} / {files.length} files</span></div><div className="h-2 mt-3 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-cyan-400 transition-all" style={{ width: `${progress}%` }} /></div></div>}
            
            <div className="max-h-80 overflow-y-auto mb-6 rounded-xl border border-slate-800 bg-slate-900/50">
              <table className="w-full text-left text-sm text-slate-400">
@@ -1797,6 +1827,31 @@ const getLocalDocumentResponse = (question, documentText) => {
     .filter(sentence => sentence.length > 30);
   const normalizedQuestion = question.toLowerCase();
   const isSummaryRequest = /summar|overview|main points|key points|brief/i.test(normalizedQuestion);
+  const isDatesRequest = /date|deadline|when|schedule/i.test(normalizedQuestion);
+  const isContactsRequest = /contact|email|phone|telephone|mobile/i.test(normalizedQuestion);
+  const isHeadingsRequest = /heading|section|chapter|title/i.test(normalizedQuestion);
+  const isStudyRequest = /study|flashcard|quiz|question/i.test(normalizedQuestion);
+
+  if (isDatesRequest) {
+    const dates = documentText.match(/\b(?:\d{1,2}[/-]){2}\d{2,4}\b|\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:,\s*\d{4})?\b/gi) || [];
+    return dates.length ? `Important dates found locally (${dates.length}):\n\n${[...new Set(dates)].map(date => `• ${date}`).join('\n')}` : 'I could not find recognizable dates in this document.';
+  }
+
+  if (isContactsRequest) {
+    const emails = documentText.match(/[\w.+-]+@[\w-]+\.[\w.-]+/g) || [];
+    const phones = documentText.match(/(?:\+?\d[\d\s().-]{7,}\d)/g) || [];
+    const contacts = [...new Set([...emails, ...phones])];
+    return contacts.length ? `Contact details found locally:\n\n${contacts.map(contact => `• ${contact.trim()}`).join('\n')}` : 'I could not find recognizable email addresses or phone numbers.';
+  }
+
+  if (isHeadingsRequest) {
+    const headings = documentText.split(/\n+/).map(line => line.trim()).filter(line => line.length > 3 && line.length < 100 && !/[.!?]$/.test(line)).slice(0, 12);
+    return headings.length ? `Likely headings found locally:\n\n${headings.map(heading => `• ${heading}`).join('\n')}` : 'I could not identify clear headings in this document.';
+  }
+
+  if (isStudyRequest) {
+    return sentences.slice(0, 5).map((sentence, index) => `Q${index + 1}: What is the main idea of this passage?\nA: ${sentence}`).join('\n\n') || 'There is not enough readable text to create study questions.';
+  }
 
   if (isSummaryRequest || !question.trim()) {
     const summary = sentences.slice(0, 5);
@@ -2191,6 +2246,7 @@ const ToolViewer = ({ tool, onBack, navigateToTool }) => {
       case 'remove-bg': return <BackgroundRemover />;
       case 'exact-compress': return <ExactCompressor />;
       case 'image-converter': return <ImageConverter />;
+      case 'image-editor': return <ImageEditor />;
       case 'image-to-pdf': return <ImageToPdf />;
       case 'pdf-to-images': return <PdfToImages />;
       case 'merge-pdf': return <MergePdf />;
@@ -2347,6 +2403,11 @@ const AllTools = ({ navigateToTool, initialSearch = '', favorites = [], toggleFa
 
 const WorkspaceDashboard = ({ navigate, navigateToTool, recentTools, favoriteTools, recentFiles, stats }) => (
   <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <section className="relative overflow-hidden rounded-3xl border border-cyan-500/20 bg-gradient-to-br from-slate-900 via-slate-950 to-cyan-950/40 p-6 sm:p-10">
+      <div className="relative z-10 max-w-3xl"><Badge variant="cyan">PRIVATE DOCUMENT WORKSPACE</Badge><h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mt-4">Your files. Your browser. Your privacy.</h1><p className="text-base sm:text-lg text-slate-400 mt-4 max-w-2xl">Edit, convert, compress and organize documents without uploading them.</p><Button className="mt-6" onClick={() => navigate('all_tools')}><UploadCloud className="w-4 h-4" /> Choose a tool</Button></div>
+      <div className="absolute -right-20 -bottom-32 h-80 w-80 rounded-full bg-cyan-500/10 blur-3xl" />
+    </section>
+    <section><div className="flex items-center justify-between mb-4"><div><h2 className="text-lg font-semibold text-white">Quick actions</h2><p className="text-sm text-slate-500 mt-1">Start with the tasks people use most</p></div><Button variant="ghost" size="sm" onClick={() => navigate('all_tools')}>All tools <ArrowRight className="w-3 h-3" /></Button></div><div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">{TOOLS.filter(tool => ['image-to-pdf', 'exact-compress', 'image-converter', 'document-scanner', 'passport-photo', 'signature-maker'].includes(tool.id)).map(tool => <button key={tool.id} onClick={() => navigateToTool(tool)} className="text-left p-4 rounded-2xl border border-slate-800 bg-slate-900/60 hover:border-cyan-500/40 hover:bg-slate-900 transition-colors"><tool.icon className="w-5 h-5 text-cyan-400 mb-3" /><div className="text-sm font-medium text-white leading-tight">{tool.name}</div><div className="text-[11px] text-slate-500 mt-1">{tool.category}</div></button>)}</div></section>
     <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
       <div><Badge variant="cyan">PRIVATE WORKSPACE</Badge><h1 className="text-3xl sm:text-4xl font-bold text-white mt-3">Good to see you.</h1><p className="text-slate-400 mt-2">Your documents stay in this browser while you work.</p></div>
       <Button onClick={() => navigate('all_tools')}><FilePlus2 className="w-4 h-4" /> Start a task</Button>
@@ -2369,7 +2430,7 @@ const WorkspaceSidebar = ({ view, navigate, isOpen, close, favoritesCount }) => 
 
 const RecentFilesView = ({ files, onClear }) => <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8"><div className="flex items-end justify-between mb-8"><div><Badge variant="cyan">LOCAL INDEX</Badge><h1 className="text-3xl font-bold text-white mt-3">Recent files</h1><p className="text-slate-400 mt-2">Only file names, sizes, and timestamps are remembered.</p></div>{files.length > 0 && <Button variant="outline" onClick={onClear}><Trash2 className="w-4 h-4" /> Clear history</Button>}</div>{files.length ? <Card className="divide-y divide-slate-800">{files.map(file => <div key={`${file.name}-${file.modified}`} className="p-4 flex items-center gap-4"><div className="p-3 rounded-xl bg-slate-800 text-cyan-400"><FileText className="w-5 h-5" /></div><div className="min-w-0 flex-1"><div className="text-white truncate">{file.name}</div><div className="text-sm text-slate-500 mt-1">{file.type || 'Unknown type'} · {formatBytes(file.size)}</div></div><div className="text-xs text-slate-600">{new Date(file.modified).toLocaleString()}</div></div>)}</Card> : <Card className="p-10"><EmptyState icon={History} title="Your file history is empty" text="Upload a document in any tool to start a local history." /></Card>}</div>;
 
-const PrivacyCenter = ({ onClear }) => { const [storage, setStorage] = useState(0); useEffect(() => setStorage(new Blob(Object.values(localStorage)).size), []); return <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8"><Badge variant="emerald">PRIVACY CENTER</Badge><h1 className="text-3xl font-bold text-white mt-3">Your files stay yours.</h1><p className="text-slate-400 mt-2 mb-8">DocMate is designed to process documents locally whenever the browser allows it.</p><div className="grid md:grid-cols-2 gap-4 mb-6">{[['Local processing', 'PDF, image, and conversion work happens in this browser.', Check], ['No external AI API', 'The assistant uses local extraction and retrieval only.', ShieldCheck], ['No account required', 'There is no sign-in or cloud document library.', Lock], ['Transparent storage', `${formatBytes(storage)} of local metadata currently stored.`, Database]].map(([title, text, Icon]) => <Card key={title} className="p-5"><Icon className="w-5 h-5 text-emerald-400 mb-4" /><h2 className="text-white font-semibold">{title}</h2><p className="text-sm text-slate-500 mt-2 leading-relaxed">{text}</p></Card>)}</div><Card className="p-6 border-amber-500/20"><h2 className="text-white font-semibold">Clear local data</h2><p className="text-sm text-slate-500 mt-2 mb-5">This clears recent tools, favorite tools, and recent file metadata. It does not delete files from your computer.</p><Button variant="danger" onClick={onClear}><Trash2 className="w-4 h-4" /> Clear local workspace data</Button></Card></div>; };
+const PrivacyCenter = ({ onClear }) => { const [storage, setStorage] = useState(0); useEffect(() => setStorage(new Blob(Object.values(localStorage)).size), []); const clear = () => { if (window.confirm('Clear DocMate local metadata and cached application data? Your files will not be deleted.')) onClear(); }; return <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8"><Badge variant="emerald">PRIVACY CENTER</Badge><h1 className="text-3xl font-bold text-white mt-3">Your files stay yours.</h1><p className="text-slate-400 mt-2 mb-8">DocMate is designed to process documents locally whenever the browser allows it.</p><div className="grid md:grid-cols-2 gap-4 mb-6">{[['Local processing', 'PDF, image, and conversion work happens in this browser.', Check], ['No external AI API', 'The assistant uses local extraction and retrieval only.', ShieldCheck], ['No account required', 'There is no sign-in or cloud document library.', Lock], ['Transparent storage', `${formatBytes(storage)} of local metadata currently stored.`, Database]].map(([title, text, Icon]) => <Card key={title} className="p-5"><Icon className="w-5 h-5 text-emerald-400 mb-4" /><h2 className="text-white font-semibold">{title}</h2><p className="text-sm text-slate-500 mt-2 leading-relaxed">{text}</p></Card>)}</div><Card className="p-6 border-amber-500/20"><h2 className="text-white font-semibold">Clear local data</h2><p className="text-sm text-slate-500 mt-2 mb-5">This clears recent files metadata, favorites, saved workflows, and local settings. It does not delete files from your computer.</p><Button variant="danger" onClick={clear}><Trash2 className="w-4 h-4" /> Clear local workspace data</Button></Card></div>; };
 
 const Workflows = ({ navigateToTool }) => { const [saved, setSaved] = useState(() => readStoredJson('docmate-workflows', [])); const presets = [{ name: 'College application pack', desc: 'Validate photo, signature, and resume files.', tool: 'submission-ready' }, { name: 'Exam notes pack', desc: 'Merge notes, then summarize them locally.', tool: 'ai-assistant' }, { name: 'PDF cleanup', desc: 'Organize pages and add page numbers.', tool: 'pdf-organizer' }]; const save = name => { const next = [...saved, { name, created: Date.now() }]; setSaved(next); localStorage.setItem('docmate-workflows', JSON.stringify(next)); }; return <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8"><Badge variant="cyan">WORKFLOWS</Badge><h1 className="text-3xl font-bold text-white mt-3">Repeatable document routines</h1><p className="text-slate-400 mt-2 mb-8">Start with a focused preset. Your saved workflow names stay local.</p><div className="grid md:grid-cols-3 gap-4">{presets.map(preset => <Card key={preset.name} hover className="p-5"><Workflow className="w-5 h-5 text-cyan-400 mb-4" /><h2 className="text-white font-semibold">{preset.name}</h2><p className="text-sm text-slate-500 mt-2 min-h-10">{preset.desc}</p><div className="flex gap-2 mt-5"><Button size="sm" onClick={() => navigateToTool(TOOLS.find(tool => tool.id === preset.tool))}>Open step</Button><Button size="sm" variant="ghost" onClick={() => save(preset.name)}>Save</Button></div></Card>)}</div>{saved.length > 0 && <Card className="p-6 mt-6"><h2 className="text-white font-semibold mb-4">Saved locally</h2><div className="space-y-2">{saved.map((item, index) => <div key={`${item.name}-${index}`} className="flex items-center gap-3 p-3 rounded-xl bg-slate-950"><Check className="w-4 h-4 text-emerald-400" /><span className="text-sm text-slate-300">{item.name}</span><span className="ml-auto text-xs text-slate-600">{new Date(item.created).toLocaleDateString()}</span></div>)}</div></Card>}</div>; };
 
@@ -2399,6 +2460,15 @@ const InstallPrompt = () => {
   </>;
 };
 
+const NewVersionPrompt = () => {
+  const [available, setAvailable] = useState(false);
+  useEffect(() => { const show = () => setAvailable(true); window.addEventListener('docmate-update-available', show); return () => window.removeEventListener('docmate-update-available', show); }, []);
+  if (!available) return null;
+  return <div className="fixed top-20 right-4 z-[75] max-w-sm rounded-2xl border border-cyan-500/30 bg-slate-900/95 p-4 shadow-2xl backdrop-blur-xl"><div className="text-sm font-semibold text-white">New version available</div><p className="text-xs text-slate-400 mt-1">Update DocMate when you are ready. Your local metadata stays on this device.</p><div className="flex gap-2 mt-3"><Button size="sm" onClick={() => window.location.reload()}>Update</Button><Button size="sm" variant="ghost" onClick={() => setAvailable(false)}>Later</Button></div></div>;
+};
+
+const GlobalDropOverlay = ({ visible }) => visible ? <div className="fixed inset-0 z-[95] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center pointer-events-none"><div className="rounded-3xl border-2 border-dashed border-cyan-400 bg-cyan-500/10 p-10 text-center mx-6"><UploadCloud className="w-12 h-12 text-cyan-300 mx-auto mb-4" /><h2 className="text-2xl font-bold text-white">Drop files anywhere</h2><p className="text-slate-400 mt-2">DocMate will keep them on this device.</p></div></div> : null;
+
 const DownloadToast = () => {
   const [download, setDownload] = useState(null);
   useEffect(() => {
@@ -2419,6 +2489,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCommandOpen, setIsCommandOpen] = useState(false);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const [uploadRef] = useState(() => React.createRef());
 
   const refreshFiles = () => setRecentFiles(readStoredJson('docmate-recent-files', []));
@@ -2427,11 +2498,21 @@ export default function App() {
   const toggleFavorite = id => setFavorites(previous => { const next = previous.includes(id) ? previous.filter(item => item !== id) : [...previous, id]; localStorage.setItem('docmate-favorites', JSON.stringify(next)); return next; });
   const clearLocalData = () => { ['docmate-recent-tools', 'docmate-favorites', 'docmate-recent-files', 'docmate-workflows'].forEach(key => localStorage.removeItem(key)); setRecentTools([]); setFavorites([]); setRecentFiles([]); };
 
+  useEffect(() => {
+    let dragDepth = 0;
+    const onDragEnter = event => { if (event.dataTransfer?.types?.includes('Files')) { dragDepth += 1; setIsDraggingFiles(true); } };
+    const onDragLeave = event => { if (event.dataTransfer?.types?.includes('Files')) { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) setIsDraggingFiles(false); } };
+    const onDrop = event => { if (!event.dataTransfer?.files?.length) return; event.preventDefault(); dragDepth = 0; setIsDraggingFiles(false); Array.from(event.dataTransfer.files).forEach(rememberRecentFile); refreshFiles(); navigate('recent'); };
+    const prevent = event => { if (event.dataTransfer?.types?.includes('Files')) event.preventDefault(); };
+    window.addEventListener('dragenter', onDragEnter); window.addEventListener('dragleave', onDragLeave); window.addEventListener('dragover', prevent); window.addEventListener('drop', onDrop);
+    return () => { window.removeEventListener('dragenter', onDragEnter); window.removeEventListener('dragleave', onDragLeave); window.removeEventListener('dragover', prevent); window.removeEventListener('drop', onDrop); };
+  }, []);
+
   useEffect(() => { window.history.replaceState({ docmateView: 'home' }, '', window.location.href); const onPopState = event => { setIsMenuOpen(false); setIsCommandOpen(false); setActiveTool(null); setView(event.state?.docmateView || 'home'); refreshFiles(); }; const onKeyDown = event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setIsCommandOpen(true); } if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'u') { event.preventDefault(); uploadRef.current?.click(); } if (event.key === 'Escape') { setIsCommandOpen(false); setIsMenuOpen(false); } }; window.addEventListener('popstate', onPopState); window.addEventListener('keydown', onKeyDown); return () => { window.removeEventListener('popstate', onPopState); window.removeEventListener('keydown', onKeyDown); }; }, [uploadRef]);
   const favoriteTools = favorites.map(id => TOOLS.find(tool => tool.id === id)).filter(Boolean);
   const stats = [{ label: 'Recent files', value: recentFiles.length, detail: 'stored locally' }, { label: 'Favorite tools', value: favoriteTools.length, detail: 'quick routes' }, { label: 'Available tools', value: TOOLS.length, detail: 'browser-first' }, { label: 'Cloud uploads', value: '0', detail: 'by design' }];
   const page = view === 'home' ? <WorkspaceDashboard navigate={navigate} navigateToTool={navigateToTool} recentTools={recentTools} favoriteTools={favoriteTools} recentFiles={recentFiles} stats={stats} /> : view === 'recent' ? <RecentFilesView files={recentFiles} onClear={() => { localStorage.removeItem('docmate-recent-files'); setRecentFiles([]); }} /> : view === 'favorites' ? <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8"><Badge variant="cyan">FAVORITES</Badge><h1 className="text-3xl font-bold text-white mt-3 mb-8">Your favorite tools</h1>{favoriteTools.length ? <div className="grid md:grid-cols-3 gap-5">{favoriteTools.map(tool => <Card key={tool.id} hover onClick={() => navigateToTool(tool)} className="p-6"><tool.icon className="w-6 h-6 text-amber-300 mb-4" /><h2 className="text-white font-semibold">{tool.name}</h2><p className="text-sm text-slate-500 mt-2">{tool.desc}</p></Card>)}</div> : <Card className="p-8"><EmptyState icon={Star} title="No favorites yet" text="Star a tool in All Tools to pin it here." action="Browse tools" onClick={() => navigate('all_tools')} /></Card>}</div> : view === 'all_tools' ? <AllTools navigateToTool={navigateToTool} initialSearch={searchQuery} favorites={favorites} toggleFavorite={toggleFavorite} /> : view === 'workflows' ? <Workflows navigateToTool={navigateToTool} /> : view === 'privacy' ? <PrivacyCenter onClear={clearLocalData} /> : <ToolViewer tool={activeTool} onBack={() => navigate('all_tools')} navigateToTool={navigateToTool} />;
 
   if (MAINTENANCE_MODE) return <div className="min-h-screen bg-slate-950 text-slate-300 flex items-center justify-center px-6"><div className="w-full max-w-lg text-center"><div className="mx-auto mb-6 w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shadow-[0_0_30px_rgba(6,182,212,0.35)]"><FileText className="w-8 h-8 text-white" /></div><Badge variant="cyan">TEMPORARILY UNAVAILABLE</Badge><h1 className="text-4xl font-bold text-white mt-5">We’ll be back soon.</h1><p className="text-slate-400 mt-4 leading-relaxed">DocMate is currently undergoing a quick update. Your local documents remain on your device, and the workspace will be available again shortly.</p><div className="mt-8 flex items-center justify-center gap-2 text-sm text-slate-500"><Loader2 className="w-4 h-4 animate-spin text-cyan-400" /> Maintenance in progress</div></div></div>;
-  return <div className="min-h-screen font-sans dark bg-slate-950 text-slate-300 selection:bg-cyan-500/30"><WorkspaceSidebar view={view} navigate={navigate} isOpen={isMenuOpen} close={() => setIsMenuOpen(false)} favoritesCount={favorites.length} /><div className="lg:pl-64"><header className="sticky top-0 z-40 h-16 backdrop-blur-xl bg-slate-950/85 border-b border-slate-800"><div className="h-full px-4 sm:px-6 flex items-center gap-3"><button className="lg:hidden p-2 text-slate-300" onClick={() => setIsMenuOpen(true)} aria-label="Open navigation"><Menu className="w-5 h-5" /></button><button onClick={() => setIsCommandOpen(true)} className="flex-1 max-w-xl flex items-center gap-3 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-500 hover:border-slate-700 text-sm text-left"><Search className="w-4 h-4" /><span className="flex-1">Search tools and workflows...</span><span className="hidden sm:flex items-center gap-1 text-[10px] border border-slate-700 rounded px-1.5 py-0.5"><Command className="w-3 h-3" />K</span></button><div className="ml-auto flex items-center gap-2"><Badge variant="emerald"><Lock className="w-3 h-3 inline mr-1" />Local</Badge><button onClick={() => navigate('privacy')} className="p-2 text-slate-500 hover:text-white" aria-label="Open privacy center"><ShieldCheck className="w-5 h-5" /></button></div></div></header><main className="min-h-[calc(100vh-64px)] pb-20 lg:pb-0">{page}</main><footer className="border-t border-slate-800 px-6 py-6 text-xs text-slate-600 flex justify-between"><span>DocMate · Local-first document workspace</span><button onClick={() => navigate('privacy')} className="hover:text-slate-300">Privacy center</button></footer></div><nav className="lg:hidden fixed bottom-0 inset-x-0 z-[65] border-t border-slate-800 bg-slate-950/95 backdrop-blur-xl px-2 pb-[env(safe-area-inset-bottom)]"><div className="grid grid-cols-4 gap-1"><button onClick={() => navigate('home')} className={`flex flex-col items-center gap-1 py-2 text-[10px] ${view === 'home' ? 'text-cyan-300' : 'text-slate-500'}`}><LayoutDashboard className="w-4 h-4" />Workspace</button><button onClick={() => navigate('all_tools')} className={`flex flex-col items-center gap-1 py-2 text-[10px] ${view === 'all_tools' || view === 'tool_view' ? 'text-cyan-300' : 'text-slate-500'}`}><Grid className="w-4 h-4" />Tools</button><button onClick={() => navigate('recent')} className={`flex flex-col items-center gap-1 py-2 text-[10px] ${view === 'recent' ? 'text-cyan-300' : 'text-slate-500'}`}><History className="w-4 h-4" />Recent</button><button onClick={() => navigate('favorites')} className={`flex flex-col items-center gap-1 py-2 text-[10px] ${view === 'favorites' ? 'text-cyan-300' : 'text-slate-500'}`}><Star className="w-4 h-4" />Favorites</button></div></nav><InstallPrompt /><DownloadToast /><input ref={uploadRef} type="file" className="hidden" onChange={event => { if (event.target.files?.[0]) { rememberRecentFile(event.target.files[0]); refreshFiles(); navigate('recent'); } event.target.value = null; }} />{isCommandOpen && <div className="fixed inset-0 z-[80] bg-black/70 p-4 flex items-start justify-center pt-[12vh]" onClick={() => setIsCommandOpen(false)}><div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden" onClick={event => event.stopPropagation()}><div className="p-4 border-b border-slate-800 flex items-center gap-3"><Search className="w-5 h-5 text-cyan-400" /><input autoFocus value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="Search tools..." className="flex-1 bg-transparent outline-none text-white" /><button onClick={() => setIsCommandOpen(false)} aria-label="Close search"><X className="w-5 h-5 text-slate-500" /></button></div><div className="max-h-80 overflow-y-auto p-2">{TOOLS.filter(tool => `${tool.name} ${tool.desc}`.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 8).map(tool => <button key={tool.id} onClick={() => { setIsCommandOpen(false); navigateToTool(tool); }} className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-slate-800"><tool.icon className="w-5 h-5 text-cyan-400" /><span className="text-sm text-white">{tool.name}</span><span className="text-xs text-slate-600 ml-auto">{tool.category}</span></button>)}{!TOOLS.some(tool => `${tool.name} ${tool.desc}`.toLowerCase().includes(searchQuery.toLowerCase())) && <div className="p-6 text-center text-sm text-slate-500">No matching tools.</div>}</div></div></div>}</div>;
+  return <div className="min-h-screen font-sans dark bg-slate-950 text-slate-300 selection:bg-cyan-500/30"><GlobalDropOverlay visible={isDraggingFiles} /><WorkspaceSidebar view={view} navigate={navigate} isOpen={isMenuOpen} close={() => setIsMenuOpen(false)} favoritesCount={favorites.length} /><div className="lg:pl-64"><header className="sticky top-0 z-40 h-16 backdrop-blur-xl bg-slate-950/85 border-b border-slate-800"><div className="h-full px-4 sm:px-6 flex items-center gap-3"><button className="lg:hidden p-2 text-slate-300" onClick={() => setIsMenuOpen(true)} aria-label="Open navigation"><Menu className="w-5 h-5" /></button><button onClick={() => setIsCommandOpen(true)} className="flex-1 max-w-xl flex items-center gap-3 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-500 hover:border-slate-700 text-sm text-left"><Search className="w-4 h-4" /><span className="flex-1">Search tools and workflows...</span><span className="hidden sm:flex items-center gap-1 text-[10px] border border-slate-700 rounded px-1.5 py-0.5"><Command className="w-3 h-3" />K</span></button><div className="ml-auto flex items-center gap-2"><Badge variant="emerald"><Lock className="w-3 h-3 inline mr-1" />Local</Badge><button onClick={() => navigate('privacy')} className="p-2 text-slate-500 hover:text-white" aria-label="Open privacy center"><ShieldCheck className="w-5 h-5" /></button></div></div></header><main className="min-h-[calc(100vh-64px)] pb-20 lg:pb-0">{page}</main><footer className="border-t border-slate-800 px-6 py-6 text-xs text-slate-600 flex justify-between"><span>DocMate · Local-first document workspace</span><button onClick={() => navigate('privacy')} className="hover:text-slate-300">Privacy center</button></footer></div><nav className="lg:hidden fixed bottom-0 inset-x-0 z-[65] border-t border-slate-800 bg-slate-950/95 backdrop-blur-xl px-2 pb-[env(safe-area-inset-bottom)]"><div className="grid grid-cols-4 gap-1"><button onClick={() => navigate('home')} className={`flex flex-col items-center gap-1 py-2 text-[10px] ${view === 'home' ? 'text-cyan-300' : 'text-slate-500'}`}><LayoutDashboard className="w-4 h-4" />Workspace</button><button onClick={() => navigate('all_tools')} className={`flex flex-col items-center gap-1 py-2 text-[10px] ${view === 'all_tools' || view === 'tool_view' ? 'text-cyan-300' : 'text-slate-500'}`}><Grid className="w-4 h-4" />Tools</button><button onClick={() => navigate('recent')} className={`flex flex-col items-center gap-1 py-2 text-[10px] ${view === 'recent' ? 'text-cyan-300' : 'text-slate-500'}`}><History className="w-4 h-4" />Recent</button><button onClick={() => navigate('favorites')} className={`flex flex-col items-center gap-1 py-2 text-[10px] ${view === 'favorites' ? 'text-cyan-300' : 'text-slate-500'}`}><Star className="w-4 h-4" />Favorites</button></div></nav><InstallPrompt /><NewVersionPrompt /><DownloadToast /><input ref={uploadRef} type="file" className="hidden" onChange={event => { if (event.target.files?.[0]) { rememberRecentFile(event.target.files[0]); refreshFiles(); navigate('recent'); } event.target.value = null; }} />{isCommandOpen && <div className="fixed inset-0 z-[80] bg-black/70 p-4 flex items-start justify-center pt-[12vh]" onClick={() => setIsCommandOpen(false)}><div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden" onClick={event => event.stopPropagation()}><div className="p-4 border-b border-slate-800 flex items-center gap-3"><Search className="w-5 h-5 text-cyan-400" /><input autoFocus value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="Search tools..." className="flex-1 bg-transparent outline-none text-white" /><button onClick={() => setIsCommandOpen(false)} aria-label="Close search"><X className="w-5 h-5 text-slate-500" /></button></div><div className="max-h-80 overflow-y-auto p-2">{TOOLS.filter(tool => `${tool.name} ${tool.desc}`.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 8).map(tool => <button key={tool.id} onClick={() => { setIsCommandOpen(false); navigateToTool(tool); }} className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-slate-800"><tool.icon className="w-5 h-5 text-cyan-400" /><span className="text-sm text-white">{tool.name}</span><span className="text-xs text-slate-600 ml-auto">{tool.category}</span></button>)}{!TOOLS.some(tool => `${tool.name} ${tool.desc}`.toLowerCase().includes(searchQuery.toLowerCase())) && <div className="p-6 text-center text-sm text-slate-500">No matching tools.</div>}</div></div></div>}</div>;
 }
